@@ -1,15 +1,22 @@
 // Pure helpers shared by the page and the tests. Loaded as a plain script in
 // the browser (exposes window.SuretLib) and via require() in Node.
 (function (root) {
-  function flattenWords(list) {
+  function flattenWords(batches) {
     const words = [];
-    for (const [cat, items] of list) {
-      for (const item of items) {
-        const [en, hint] = Array.isArray(item) ? item : [item, ""];
-        words.push({ id: words.length + 1, cat, en, hint });
+    for (const { batch, groups } of batches) {
+      for (const [cat, items] of groups) {
+        for (const item of items) {
+          const [en, hint] = Array.isArray(item) ? item : [item, ""];
+          words.push({ id: words.length + 1, batch, cat, en, hint });
+        }
       }
     }
     return words;
+  }
+
+  function batchProgress(words, doneIds, batch) {
+    const inBatch = words.filter((w) => w.batch === batch);
+    return { done: inBatch.filter((w) => doneIds.has(w.id)).length, total: inBatch.length };
   }
 
   function clipFileName(word, ext) {
@@ -34,13 +41,16 @@
     return "";
   }
 
-  // Where to put someone when the server reports what's already recorded:
-  // the first word not done, but only on a fresh visit still sitting on
-  // card 1. Never yank someone who has started recording or navigating.
+  // Where to put someone when they open the page: if the card they were on
+  // is already done (finished last time, or a new batch just came out),
+  // move to the next word not done, else the earliest one. Never yank
+  // someone who has started recording or navigating this visit.
   function resumeIndex(words, doneIds, { index, interacted }) {
-    if (interacted || index !== 0) return index;
+    if (interacted || !words[index] || !doneIds.has(words[index].id)) return index;
+    const after = words.findIndex((w, i) => i > index && !doneIds.has(w.id));
+    if (after !== -1) return after;
     const first = words.findIndex((w) => !doneIds.has(w.id));
-    return first > 0 ? first : index;
+    return first !== -1 ? first : index;
   }
 
   const CRC_TABLE = (() => {
@@ -113,7 +123,7 @@
     return out;
   }
 
-  const api = { flattenWords, clipFileName, extForMime, pickMime, resumeIndex, crc32, makeZip };
+  const api = { flattenWords, batchProgress, clipFileName, extForMime, pickMime, resumeIndex, crc32, makeZip };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.SuretLib = api;
 })(this);

@@ -1,6 +1,6 @@
 (function () {
-  const { flattenWords, clipFileName, extForMime, pickMime, resumeIndex, makeZip } = window.SuretLib;
-  const WORDS = flattenWords(WORD_LIST);
+  const { flattenWords, batchProgress, clipFileName, extForMime, pickMime, resumeIndex, makeZip } = window.SuretLib;
+  const WORDS = flattenWords(BATCHES);
   const ENDPOINT = (CONFIG.endpoint || "").trim();
   const MAX_SECONDS = 12;
 
@@ -84,17 +84,22 @@
     renderProgress();
   }
 
+  // Progress is shown for the batch of the current card, so a new batch
+  // starts at 0 instead of feeling like a long way from the end.
   function renderProgress() {
-    let done = 0, skipped = 0, waiting = 0, local = 0;
+    const recorded = new Set(), skippedIds = new Set();
+    let waiting = 0, local = 0;
     for (const r of recs.values()) {
-      if (r.status === "skipped") skipped++;
-      else done++;
+      (r.status === "skipped" ? skippedIds : recorded).add(r.id);
       if (r.status === "pending") waiting++;
       if (r.status === "local") local++;
     }
-    el.progressText.textContent = `${done} of ${WORDS.length} recorded` + (skipped ? ` · ${skipped} skipped` : "");
+    const batch = WORDS[index].batch;
+    const { done, total } = batchProgress(WORDS, recorded, batch);
+    const skipped = batchProgress(WORDS, skippedIds, batch).done;
+    el.progressText.textContent = `Batch ${batch} · ${done} of ${total} recorded` + (skipped ? ` · ${skipped} skipped` : "");
     el.queueText.textContent = waiting ? `${waiting} sending…` : local ? "saved on this phone" : "";
-    el.bar.style.width = `${((done + skipped) / WORDS.length) * 100}%`;
+    el.bar.style.width = `${((done + skipped) / total) * 100}%`;
   }
 
   function goTo(i) {
@@ -331,8 +336,16 @@
   }
   function renderList() {
     el.wordList.textContent = "";
-    let cat = "";
+    let cat = "", batch = 0;
     for (const w of WORDS) {
+      if (w.batch !== batch) {
+        batch = w.batch;
+        cat = "";
+        const b = document.createElement("h2");
+        b.className = "batch-head";
+        b.textContent = `Batch ${batch}`;
+        el.wordList.appendChild(b);
+      }
       if (w.cat !== cat) {
         cat = w.cat;
         const h = document.createElement("h3");
@@ -395,7 +408,7 @@
       }
     } catch { /* storage unavailable: still works for this visit */ }
     if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
-    goTo(index);
+    goTo(resumeIndex(WORDS, new Set(recs.keys()), { index, interacted: false }));
     if (!store.get("suret.seenHelp")) openSheet(el.helpSheet);
     pump();
     syncFromServer();
