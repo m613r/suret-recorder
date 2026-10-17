@@ -388,7 +388,11 @@
 
   (async function init() {
     try {
-      for (const rec of await dbAll()) recs.set(rec.id, rec);
+      for (const rec of await dbAll()) {
+        // Recorded before Drive saving was switched on: send those now.
+        if (ENDPOINT && rec.status === "local") rec.status = "pending";
+        recs.set(rec.id, rec);
+      }
     } catch { /* storage unavailable: still works for this visit */ }
     if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
     goTo(index);
