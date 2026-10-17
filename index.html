@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Suret Word Recorder</title>
+<style>
+  :root {
+    --bg: #f7f3ee;
+    --surface: #ffffff;
+    --ink: #1f1a17;
+    --muted: #6f655d;
+    --line: #e4dcd2;
+    --accent: #a8322d;
+    --accent-ink: #ffffff;
+    --accent-soft: #f6e3e1;
+    --gold: #b8860b;
+    --ok: #2f7d4f;
+    --warn: #a86a00;
+    --shadow: 0 1px 2px rgba(31, 26, 23, .06), 0 8px 24px rgba(31, 26, 23, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161311;
+      --surface: #211d1a;
+      --ink: #f2ece6;
+      --muted: #a89d93;
+      --line: #36302b;
+      --accent: #e0574f;
+      --accent-ink: #1a0f0e;
+      --accent-soft: #3a2220;
+      --gold: #e0b44a;
+      --ok: #5cc28a;
+      --warn: #e0a340;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; letter-spacing: .01em; }
+  .link-btn { background: none; border: 0; padding: 8px 4px; color: var(--accent); font-weight: 600; font-size: 15px; }
+  .progress-text { font-size: 13px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .bar { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; margin-bottom: 16px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px; box-shadow: var(--shadow); }
+  .meta { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--muted); }
+  .chip { background: var(--accent-soft); color: var(--accent); font-weight: 600; padding: 3px 10px; border-radius: 99px; font-size: 12px; }
+  .prompt { font-size: clamp(28px, 9vw, 40px); font-weight: 700; line-height: 1.15; margin: 22px 0 6px; text-align: center; overflow-wrap: anywhere; }
+  .hint { text-align: center; color: var(--muted); font-style: italic; min-height: 22px; margin: 0 0 18px; }
+  .status-line { text-align: center; font-size: 13px; min-height: 20px; margin-bottom: 8px; color: var(--muted); }
+  .status-line.ok { color: var(--ok); }
+  .status-line.warn { color: var(--warn); }
+
+  .rec-zone { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 6px 0 16px; }
+  .rec-btn {
+    width: 96px; height: 96px; border-radius: 50%; border: 0;
+    background: var(--accent); color: var(--accent-ink);
+    display: grid; place-items: center; box-shadow: 0 6px 18px rgba(168, 50, 45, .3);
+    transition: transform .1s;
+  }
+  .rec-btn:active { transform: scale(.96); }
+  .rec-btn svg { width: 36px; height: 36px; }
+  .rec-btn.recording { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(168,50,45,.45); } 50% { box-shadow: 0 0 0 16px rgba(168,50,45,0); } }
+  .rec-label { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .review { display: none; gap: 10px; justify-content: center; margin-bottom: 14px; }
+  .review.show { display: flex; }
+  .pill { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 10px 18px; font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
+  .pill svg { width: 16px; height: 16px; }
+
+  label.spell { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input[type=text] {
+    width: 100%; font-size: 17px; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  .primary {
+    width: 100%; margin-top: 14px; border: 0; border-radius: 14px; padding: 15px;
+    background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 17px;
+  }
+  .primary:disabled { opacity: .4; cursor: default; }
+  .nav { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; margin-top: 14px; align-items: center; }
+  .nav button { background: none; border: 0; padding: 10px 6px; color: var(--muted); font-weight: 600; font-size: 15px; }
+  .nav button:first-child { text-align: left; }
+  .nav button:last-child { text-align: right; }
+  .nav button:disabled { opacity: .35; cursor: default; }
+
+  .sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 10; }
+  .sheet-backdrop.show { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; max-height: 85dvh; overflow: auto; z-index: 11;
+    background: var(--surface); border-radius: 20px 20px 0 0; padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .25s ease;
+    max-width: 560px; margin: 0 auto;
+  }
+  .sheet.show { transform: none; }
+  .sheet h2 { font-size: 18px; margin: 4px 0 12px; }
+  .sheet h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
+  .sheet p { margin: 0 0 12px; }
+  .sheet ul { margin: 0 0 12px; padding-left: 20px; }
+  .sheet li { margin-bottom: 6px; }
+  .word-row { display: flex; width: 100%; text-align: left; align-items: center; gap: 10px; padding: 10px 4px; border: 0; border-bottom: 1px solid var(--line); background: none; }
+  .word-row .n { color: var(--muted); font-size: 13px; width: 32px; font-variant-numeric: tabular-nums; }
+  .word-row .w { flex: 1; overflow-wrap: anywhere; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+  .dot.uploaded { background: var(--ok); }
+  .dot.pending, .dot.local { background: var(--warn); }
+  .dot.skipped { background: transparent; border: 2px solid var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .send-box { background: var(--bg); border-radius: 14px; padding: 14px; margin-top: 8px; }
+  .send-box p { font-size: 14px; color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Teach Madison Suret</h1>
+    <div>
+      <button class="link-btn" id="helpBtn" type="button">How it works</button>
+      <button class="link-btn" id="listBtn" type="button">All words</button>
+    </div>
+  </header>
+
+  <div class="progress-text"><span id="progressText">0 recorded</span><span id="queueText"></span></div>
+  <div class="bar"><div id="bar"></div></div>
+
+  <main class="card" aria-live="polite">
+    <div class="meta"><span class="chip" id="cat">Greetings</span><span id="num">1 / 1</span></div>
+    <div class="prompt" id="prompt">Hello</div>
+    <p class="hint" id="hint"></p>
+    <div class="status-line" id="statusLine"></div>
+
+    <div class="rec-zone">
+      <button class="rec-btn" id="recBtn" type="button" aria-label="Start recording">
+        <svg id="recIcon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Zm6-3.5a1 1 0 1 0-2 0 4 4 0 0 1-8 0 1 1 0 1 0-2 0 6 6 0 0 0 5 5.91V20H9a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.59a6 6 0 0 0 5-5.91Z"/></svg>
+      </button>
+      <div class="rec-label" id="recLabel">Tap to record</div>
+    </div>
+
+    <div class="review" id="review">
+      <button class="pill" id="playBtn" type="button"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg>Play</button>
+      <button class="pill" id="redoBtn" type="button">Redo</button>
+    </div>
+
+    <label class="spell" for="spelling">How it's written <em>(optional, any spelling or script)</em></label>
+    <input type="text" id="spelling" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. shlama">
+
+    <button class="primary" id="saveBtn" type="button" disabled>Save &amp; next</button>
+
+    <div class="nav">
+      <button id="prevBtn" type="button">← Back</button>
+      <button id="skipBtn" type="button">Skip</button>
+      <button id="nextBtn" type="button">Next →</button>
+    </div>
+  </main>
+</div>
+
+<div class="sheet-backdrop" id="backdrop"></div>
+
+<section class="sheet" id="helpSheet" role="dialog" aria-labelledby="helpTitle">
+  <h2 id="helpTitle">Hi! Thanks for helping 💛</h2>
+  <p>I'm learning Suret and want to learn it in <strong>your</strong> voice, the way your family says it. Each card shows an English word or phrase. Record how you'd say it, and it goes straight into my flashcards.</p>
+  <h3>How to record</h3>
+  <ul>
+    <li>Tap the red button, say the word <strong>once, clearly</strong>, then tap again to stop.</li>
+    <li>Tap <strong>Play</strong> to check it. <strong>Redo</strong> if you want another try.</li>
+    <li>If you want, type how it's written: English letters or Syriac script are both fine. Then tap <strong>Save &amp; next</strong>.</li>
+    <li>Not sure, or your family doesn't use that word? Tap <strong>Skip</strong>.</li>
+  </ul>
+  <h3>A few notes</h3>
+  <ul>
+    <li><strong>"how Madison would say it"</strong> means say it as a woman would say it about herself.</li>
+    <li><strong>"say both"</strong> means record both versions back to back: talking to a man, then to a woman.</li>
+    <li>Do as many as you want at a time. It remembers where you left off.</li>
+    <li>If it opened inside Discord and the mic won't work, open the link in Safari or Chrome instead.</li>
+  </ul>
+  <button class="primary" id="helpClose" type="button">Let's go</button>
+</section>
+
+<section class="sheet" id="listSheet" role="dialog" aria-labelledby="listTitle">
+  <h2 id="listTitle">All words</h2>
+  <div class="legend">
+    <span><i class="dot uploaded"></i>Sent</span>
+    <span><i class="dot pending"></i>Saved, not sent yet</span>
+    <span><i class="dot skipped"></i>Skipped</span>
+    <span><i class="dot"></i>To do</span>
+  </div>
+  <div class="send-box">
+    <p id="sendNote">Your recordings go to Madison automatically. If something isn't sending, use this button to send everything in one file (Discord, Messages, AirDrop, anything).</p>
+    <button class="pill" id="sendBtn" type="button">Send recordings to Madison</button>
+  </div>
+  <div id="wordList"></div>
+</section>
+
+<div class="toast" id="toast" role="status"></div>
+
+<!-- Bump ?v= when a file changes so phones don't keep a cached copy. -->
+<script src="config.js?v=1"></script>
+<script src="words.js?v=1"></script>
+<script src="lib.js?v=1"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
